@@ -1,0 +1,18 @@
+[project]
+name = "webdriver_cache_manager"
+version = "0.0.1"
+authors = [
+  { name="Muhammad Nawaz", email="MNawaz6935@gmail.com" },
+]
+description = "Optimize WebDriver usage in Selenium with Python. Manage processes, terminate efficiently, and handle PIDs using CSV. Simplify automation!"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/mnawaz6935/webdriver_cache_manager"
+Issues = "https://github.com/mnawaz6935/webdriver_cache_manager/issues"
