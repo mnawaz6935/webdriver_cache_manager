@@ -2,6 +2,7 @@
 
 `webdriver_cache_manager` simplifies managing ChromeDriver instances in Selenium using Python. Track active processes, terminate unused instances, and handle associated PIDs with ease.
 
+[![Upload Python Package](https://github.com/mnawaz6935/webdriver_cache_manager/actions/workflows/python-publish.yml/badge.svg?branch=main)](https://github.com/mnawaz6935/webdriver_cache_manager/actions/workflows/python-publish.yml)
 ## Installation
 
 Install via pip:
