@@ -44,6 +44,11 @@ def kill_process_by_pid(pid):
         logging.info(f"Failed to kill process with PID {pid}. Error: {e}")
 
 
+def KillChromeAndDriverCache():
+    subprocess.run(['taskkill', '/im', 'chrome.exe', '/f'], check=True)
+    subprocess.run(['taskkill', '/im', 'chromedriver.exe', '/f'], check=True)
+
+
 def ManageChromeDriverCache(driver):
     try:
         # Get the ChromeDriver process ID
