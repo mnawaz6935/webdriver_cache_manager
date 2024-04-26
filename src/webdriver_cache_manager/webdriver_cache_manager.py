@@ -1,35 +1,33 @@
 import csv
 import logging
+import os
 import subprocess
 import traceback
-
 import psutil
 
+CSV_FILE_PATH = os.path.join(os.path.join( os.path.expanduser("~"), ".wcm"), "pids.csv")
 
-def save_pids_to_csv(chrome_driver_pid, chrome_pid):
-    with open('pids.csv', 'a+', newline='') as csvfile:
-        fieldnames = ['Process', 'PID']
+def save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid):
+    with open(CSV_FILE_PATH, 'a+', newline='') as csvfile:
+        fieldnames = ['File Path', 'ChromeDriver PID', 'Chrome PID']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerow({'Process': 'ChromeDriver', 'PID': chrome_driver_pid})
-        writer.writerow({'Process': 'Chrome', 'PID': chrome_pid})
+        writer.writerow({'File Path': file_path, 'ChromeDriver PID': chrome_driver_pid, 'Chrome PID': chrome_pid})
 
 
-def read_pids_from_csv():
+def read_pids_from_csv(file_path):
     chrome_driver_pid = []
     chrome_pid = []
     try:
-        with open('pids.csv', newline='') as csvfile:
+        with open(CSV_FILE_PATH, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                if row['Process'] == 'ChromeDriver':
-                    chrome_driver_pid.append(int(row['PID']))
-                elif row['Process'] == 'Chrome':
-                    chrome_pid.append(int(row['PID']))
+                if row['File Path'] == file_path:
+                    chrome_driver_pid.append(int(row['ChromeDriver PID']))
+                    chrome_pid.append(int(row['Chrome PID']))
     except FileNotFoundError:
         pass
     try:
-        with open('pids.csv', 'w', newline=''):
+        with open(CSV_FILE_PATH, 'w', newline=''):
             pass
     except:
         logging.error('Unable to clear process_ids file.')
@@ -44,12 +42,17 @@ def kill_process_by_pid(pid):
         logging.info(f"Failed to kill process with PID {pid}. Error: {e}")
 
 
-def KillChromeAndDriverCache():
-    subprocess.run(['taskkill', '/im', 'chrome.exe', '/f'], check=True)
-    subprocess.run(['taskkill', '/im', 'chromedriver.exe', '/f'], check=True)
+def KillChromeAndDriverCache(file_path):
+    chrome_driver_pids, chrome_pids = read_pids_from_csv(file_path)
+    if chrome_driver_pids:
+        for pid in chrome_driver_pids:
+            kill_process_by_pid(pid)
+    if chrome_pids:
+        for pid in chrome_pids:
+            kill_process_by_pid(pid)
 
 
-def ManageChromeDriverCache(driver):
+def ManageChromeDriverCache(driver, file_path):
     try:
         # Get the ChromeDriver process ID
         chrome_driver_pid = driver.service.process.pid
@@ -71,13 +74,6 @@ def ManageChromeDriverCache(driver):
         else:
             logging.info("Chrome process not found for this WebDriver instance.")
 
-        chrome_driver_pids, chrome_pids = read_pids_from_csv()
-        save_pids_to_csv(chrome_driver_pid, chrome_pid)
-        if chrome_driver_pids:
-            for chrome_driver_pid in chrome_driver_pids:
-                kill_process_by_pid(chrome_driver_pid)
-        if chrome_pids:
-            for chrome_pid in chrome_pids:
-                kill_process_by_pid(chrome_pid)
+        save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid)
     except Exception as e:
         logging.error(traceback.format_exc())
