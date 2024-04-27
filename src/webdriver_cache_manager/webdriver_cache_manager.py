@@ -24,8 +24,10 @@ def read_pids_from_csv(file_path):
     global CSV_FILE_PATH
     chrome_driver_pid = []
     chrome_pid = []
+    if not os.path.exists(CSV_FILE_PATH):
+        return chrome_driver_pid, chrome_pid
     try:
-        with open(CSV_FILE_PATH, mode='r') as csvfile, open(temp_file_path, mode='w', newline='') as temp_file:
+        with open(CSV_FILE_PATH, mode='r') as csvfile, open(temp_file_path, mode='a+', newline='') as temp_file:
             reader = csv.reader(csvfile)
             writer = csv.writer(temp_file)
             for row in reader:
