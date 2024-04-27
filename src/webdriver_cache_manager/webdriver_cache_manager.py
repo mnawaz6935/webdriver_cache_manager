@@ -2,12 +2,18 @@ import csv
 import logging
 import os
 import subprocess
+import time
 import traceback
 import psutil
 
-CSV_FILE_PATH = os.path.join(os.path.join( os.path.expanduser("~"), ".wcm"), "pids.csv")
+CSV_FILE_PATH = os.path.join(os.path.expanduser("~"), ".wcm")
+os.makedirs(CSV_FILE_PATH, exist_ok=True)
+temp_file_path = os.path.join(CSV_FILE_PATH, "temp.csv")
+CSV_FILE_PATH = os.path.join(CSV_FILE_PATH, "pids.csv")
+
 
 def save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid):
+    global CSV_FILE_PATH
     with open(CSV_FILE_PATH, 'a+', newline='') as csvfile:
         fieldnames = ['File Path', 'ChromeDriver PID', 'Chrome PID']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -15,19 +21,32 @@ def save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid):
 
 
 def read_pids_from_csv(file_path):
+    global CSV_FILE_PATH
     chrome_driver_pid = []
     chrome_pid = []
     try:
-        with open(CSV_FILE_PATH, newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
+        with open(CSV_FILE_PATH, mode='r') as csvfile, open(temp_file_path, mode='w', newline='') as temp_file:
+            reader = csv.reader(csvfile)
+            writer = csv.writer(temp_file)
             for row in reader:
-                if row['File Path'] == file_path:
-                    chrome_driver_pid.append(int(row['ChromeDriver PID']))
-                    chrome_pid.append(int(row['Chrome PID']))
-    except FileNotFoundError:
-        pass
+                print(row)
+                if row[0] == file_path:
+                    chrome_driver_pid.append(int(row[1]))
+                    chrome_pid.append(int(row[2]))
+                else:
+                    writer.writerow(row)
+        os.replace(temp_file_path, CSV_FILE_PATH)
+    except:
+        time.sleep(2)
+        read_pids_from_csv(file_path)
+        try:
+            with open(temp_file_path, 'w', newline=''):
+                pass
+        except:
+            logging.error('Unable to clear process_ids file.')
+        return chrome_driver_pid, chrome_pid
     try:
-        with open(CSV_FILE_PATH, 'w', newline=''):
+        with open(temp_file_path, 'w', newline=''):
             pass
     except:
         logging.error('Unable to clear process_ids file.')
@@ -73,7 +92,7 @@ def ManageChromeDriverCache(driver, file_path):
             logging.info(f"Chrome Process ID:{chrome_pid}")
         else:
             logging.info("Chrome process not found for this WebDriver instance.")
-
+        KillChromeAndDriverCache(file_path)
         save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid)
     except Exception as e:
         logging.error(traceback.format_exc())
