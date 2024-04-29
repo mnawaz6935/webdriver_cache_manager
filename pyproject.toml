@@ -1,6 +1,6 @@
 [project]
 name = "webdriver_cache_manager"
-version = "0.0.6"
+version = "0.0.7"
 authors = [
   { name="Muhammad Nawaz", email="MNawaz6935@gmail.com" },
 ]
