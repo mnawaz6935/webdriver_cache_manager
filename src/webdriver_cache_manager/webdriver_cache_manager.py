@@ -21,13 +21,25 @@ def save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid):
         writer.writerow({'File Path': file_path, 'ChromeDriver PID': chrome_driver_pid, 'Chrome PID': chrome_pid})
 
 
+def chrome_pid_exists(chrome_pid):
+    with open(CSV_FILE_PATH, 'r', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if row[2] == str(chrome_pid):
+                return True
+    return False
+
+
 def save_pids_list_to_csv(file_path, chrome_driver_pid, chrome_pid_list):
     global CSV_FILE_PATH
     with open(CSV_FILE_PATH, 'a+', newline='') as csvfile:
         fieldnames = ['File Path', 'ChromeDriver PID', 'Chrome PID']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         for chrome_pid in chrome_pid_list:
-            writer.writerow({'File Path': file_path, 'ChromeDriver PID': chrome_driver_pid, 'Chrome PID': chrome_pid})
+            if not chrome_pid_exists(chrome_pid):
+                print(f"Found new PID: {chrome_pid}")
+                writer.writerow(
+                    {'File Path': file_path, 'ChromeDriver PID': chrome_driver_pid, 'Chrome PID': chrome_pid})
 
 
 def read_pids_from_csv(file_path):
@@ -41,7 +53,7 @@ def read_pids_from_csv(file_path):
             reader = csv.reader(csvfile)
             writer = csv.writer(temp_file)
             for row in reader:
-                print(row)
+                print(f"row={row}")
                 if row[0] == file_path:
                     chrome_driver_pid.append(int(row[1]))
                     chrome_pid.append(int(row[2]))
@@ -88,13 +100,73 @@ def KillChromeAndDriverCache(file_path):
     t.start()
 
 
+linked_pids = set()
+
+
+def read_stop_flag():
+    try:
+        with open('stop_flag.txt', 'a+') as file:
+            file.seek(0)
+            stop_flag = bool(int(file.readline().strip()))
+            return stop_flag
+    except FileNotFoundError:
+        return False
+
+
+def write_stop_flag(stop_flag):
+    with open('stop_flag.txt', 'w') as file:
+        file.write(str(int(stop_flag)))
+
+
+def write_flag_afer_a_minute():
+    time.sleep(60)
+    print("Writing stop FLAG")
+    write_stop_flag(True)
+
+
+def traverse_process_tree(pid):
+    global linked_pids
+    try:
+        process = psutil.Process(pid)
+        children = process.children(recursive=True)
+        linked_pids.add(pid)
+        for child in children:
+            linked_pids.add(child.pid)
+            traverse_process_tree(child.pid)
+    except psutil.NoSuchProcess:
+        pass
+
+
+stop_event = threading.Event()
+
+
+def stop_looking_processes():
+    write_stop_flag(True)
+
+
+def is_process_running(pid):
+    return psutil.pid_exists(pid)
+
+
+def keep_looking_processes(file_path, chrome_driver_pid):
+    global linked_pids
+    while is_process_running(chrome_driver_pid) or not read_stop_flag():
+        time.sleep(15)
+        print(f"looking for processes as process {chrome_driver_pid} running")
+        traverse_process_tree(chrome_driver_pid)
+        save_pids_list_to_csv(file_path, chrome_driver_pid, linked_pids)
+
+
 def ManageChromeDriverCache(driver, file_path):
+    global linked_pids, stop_event
+    stop_looking_processes()
     try:
         # Get the ChromeDriver process ID
-        chrome_driver_pid = driver.service.process.pid
+        driver_process_id = driver.service.process.pid
+        chrome_driver_pid = driver_process_id
         logging.info(f"ChromeDriver Process ID: {chrome_driver_pid}")
 
-        # Find the PID of the Chrome process opened by the WebDriver
+        # Find the PID of the Chrome process opened by the WebDriver 28676
         chrome_pid = None
         for process in psutil.process_iter(['pid', 'name']):
             if 'chrome.exe' in process.info['name']:
@@ -104,20 +176,19 @@ def ManageChromeDriverCache(driver, file_path):
                         break
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     pass
-        linked_pids = set()  # Set to store unique process IDs
         if chrome_pid:
             logging.info(f"Chrome Process ID:{chrome_pid}")
-
-            def traverse_process_tree(pid):
-                try:
-                    process = psutil.Process(pid)
-                    children = process.children(recursive=True)
-                    linked_pids.add(pid)
-                    for child in children:
-                        linked_pids.add(child.pid)
-                        traverse_process_tree(child.pid)
-                except psutil.NoSuchProcess:
-                    pass
+            #
+            # def traverse_process_tree(pid):
+            #     try:
+            #         process = psutil.Process(pid)
+            #         children = process.children(recursive=True)
+            #         linked_pids.add(pid)
+            #         for child in children:
+            #             linked_pids.add(child.pid)
+            #             traverse_process_tree(child.pid)
+            #     except psutil.NoSuchProcess:
+            #         pass
 
             traverse_process_tree(chrome_pid)
             print("Linked Process IDs:", linked_pids)
@@ -127,5 +198,13 @@ def ManageChromeDriverCache(driver, file_path):
         save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid)
         if linked_pids:
             save_pids_list_to_csv(file_path, chrome_driver_pid, linked_pids)
+        stop_event = threading.Event()
+
+        thread = threading.Thread(target=keep_looking_processes, args=(file_path, driver_process_id))
+        write_stop_flag(True)
+        thread.start()
+        # thread2 = threading.Thread(target=write_flag_afer_a_minute,)
+        # thread2.start()
     except Exception as e:
+        print(f"Exc: {e}")
         logging.error(traceback.format_exc())
