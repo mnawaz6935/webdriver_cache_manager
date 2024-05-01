@@ -9,8 +9,8 @@ import psutil
 
 CSV_FILE_PATH = os.path.join(os.path.expanduser("~"), ".wcm")
 os.makedirs(CSV_FILE_PATH, exist_ok=True)
-temp_file_path = os.path.join(CSV_FILE_PATH, "temp.csv")
-CSV_FILE_PATH = os.path.join(CSV_FILE_PATH, "pids.csv")
+temp_file_path = "temp.csv"#os.path.join(CSV_FILE_PATH, "temp.csv")
+CSV_FILE_PATH = "pids.csv"#os.path.join(CSV_FILE_PATH, "pids.csv")
 
 
 def save_pids_to_csv(file_path, chrome_driver_pid, chrome_pid):
